@@ -22,4 +22,10 @@ export class UpdateTokenDto {
   @IsOptional()
   @IsString()
   account_id?: string;
+  
+  @IsOptional()
+  AppKey?: string;
+  
+  @IsOptional()
+  AppSecret?: string;
 }

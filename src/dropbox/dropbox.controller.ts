@@ -8,6 +8,8 @@ import {
   Res,
   HttpException,
   HttpStatus,
+  Post,
+  Body
 } from '@nestjs/common';
 import { DropboxService } from './dropbox.service';
 import { Response } from 'express';
@@ -20,7 +22,7 @@ export class DropboxController {
   @Get('auth')
   @Redirect()
   async auth(@Res() res: Response) {
-    const authorizationUrl = this.dropboxService.getAuthorizationUrl();
+    const authorizationUrl = await this.dropboxService.getAuthorizationUrl();
     res.redirect(authorizationUrl);
   }
 
@@ -35,13 +37,17 @@ export class DropboxController {
       const tokens = await this.dropboxService.getTokens(code);
 
       // Respond to the client indicating success
-      return res.json({
+      /*return res.json({
         message: 'Authorization successful.',
         // access_token: tokens.access_token, // Optional: Remove in production
         // refresh_token: tokens.refresh_token, // Optional: Remove in production
         uid: tokens.uid,
         account_id: tokens.account_id,
-      });
+      });*/
+	  
+	  const successUrl = `https://dropbox-ng.vercel.app/#/dropboxlist`;
+	  return res.redirect(successUrl);
+	  
     } catch (error) {
       // Improved error logging
       throw new HttpException(
@@ -85,6 +91,19 @@ export class DropboxController {
 			`Failed to token: ${error.message || JSON.stringify(error)}`,
 			HttpStatus.BAD_REQUEST,
 		  );
+		}
+	}
+	
+	@Post('storeappdata')
+	async storeAppdata(
+    @Body('AppKey') AppKey: string,
+    @Body('AppSecret') AppSecret: string,
+	): Promise<any> {
+		try {
+		  const metadata = await this.dropboxService.storeAppdata(AppKey, AppSecret);
+		  return metadata;
+		} catch (error) {
+		  throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
 		}
 	}
 

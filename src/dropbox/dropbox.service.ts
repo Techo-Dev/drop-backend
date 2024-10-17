@@ -10,8 +10,8 @@ import { Dropbox, files } from 'dropbox';
 
 @Injectable()
 export class DropboxService {
-  private readonly APP_KEY: string;
-  private readonly APP_SECRET: string;
+  //private readonly APP_KEY: string;
+  //private readonly APP_SECRET: string;
   private readonly REDIRECT_URI: string;
   private readonly TOKEN_URL = 'https://api.dropboxapi.com/oauth2/token';
   private readonly AUTH_URL = 'https://www.dropbox.com/oauth2/authorize';
@@ -21,16 +21,33 @@ export class DropboxService {
     private configService: ConfigService,
     private tokensService: TokensService,
   ) {
-    this.APP_KEY = this.configService.get<string>('DROPBOX_APP_KEY');
-    this.APP_SECRET = this.configService.get<string>('DROPBOX_APP_SECRET');
+    //this.APP_KEY = this.configService.get<string>('DROPBOX_APP_KEY');
+    //this.APP_SECRET = this.configService.get<string>('DROPBOX_APP_SECRET');
     this.REDIRECT_URI = this.configService.get<string>('DROPBOX_REDIRECT_URI');
 	
 	this.initializeDropboxClient();
   }
   
-  private async initializeDropboxClient() {
+  /*private async initializeDropboxClient() {
     const accessToken = await this.getValidAccessToken();
     this.dbx = new Dropbox({ accessToken });
+  }*/
+  
+  private async initializeDropboxClient(): Promise<void> {
+    const { AppKey, AppSecret } = await this.getAppCredentialsFromDB();
+    const accessToken = await this.getValidAccessToken();
+    this.dbx = new Dropbox({ accessToken, clientId: AppKey, clientSecret: AppSecret });
+  }
+
+  private async getAppCredentialsFromDB(): Promise<{ AppKey: string; AppSecret: string }> {
+    const token: TokenDocument = await this.tokensService.findOne();
+    if (!token?.AppKey || !token?.AppSecret) {
+      throw new HttpException(
+        'Dropbox credentials not found. Please store the credentials.',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+    return { AppKey: token.AppKey, AppSecret: token.AppSecret };
   }
   
   async listFolders(path: string = ''): Promise<any> {
@@ -50,7 +67,6 @@ export class DropboxService {
     }
   }
   
-  
   async getSubfolderContent(folderPath: string = ''): Promise<{ folders: any[]; files: any[] }> {
     try {
       const response = await this.dbx.filesListFolder({ path: folderPath });
@@ -67,10 +83,6 @@ export class DropboxService {
     }
   }
 
-  /**
-   * Retrieves files from a specified folder.
-   * @param folderPath The path of the folder to retrieve files from.
-   */
   async getFilesFromFolder(folderPath: string = ''): Promise<any[]> {
     try {
       const response = await this.dbx.filesListFolder({ path: folderPath });
@@ -86,10 +98,6 @@ export class DropboxService {
     }
   }
 
-  /**
-   * Retrieves a thumbnail for a specified image path.
-   * @param imgPath The path of the image to retrieve the thumbnail for.
-   */
   async getThumbnail(imgPath: string): Promise<files.FileMetadata> {
     try {
       const imagePath = `/${imgPath}`;
@@ -108,11 +116,6 @@ export class DropboxService {
     }
   }
 
-  /**
-   * Creates a new folder under the specified parent folder.
-   * @param parentFolder The path of the parent folder.
-   * @param folderName The name of the new folder to create.
-   */
   async createFolder(parentFolder: string, folderName: string): Promise<files.FolderMetadata> {
     try {
       const fullPath = `${parentFolder}/${folderName}`;
@@ -126,11 +129,6 @@ export class DropboxService {
     }
   }
 
-  /**
-   * Uploads a single file to the specified upload folder.
-   * @param uploadFolder The path of the folder to upload the file to.
-   * @param file The file to upload.
-   */
   async uploadFile(uploadFolder: string, file: Express.Multer.File): Promise<files.FileMetadata> {
     try {
       const uploadPath = `${uploadFolder}/${file.originalname}`;
@@ -148,11 +146,6 @@ export class DropboxService {
     }
   }
 
-  /**
-   * Uploads multiple files to the specified upload folder.
-   * @param uploadFolder The path of the folder to upload the files to.
-   * @param files An array of files to upload.
-   */
   async uploadFiles(uploadFolder: string, files: Express.Multer.File[]): Promise<any[]> {
     if (!files || files.length === 0) {
       throw new HttpException('No files provided', HttpStatus.BAD_REQUEST);
@@ -188,9 +181,7 @@ export class DropboxService {
     }
   }
   
-  
-  
-
+  /*
   // Generate the Dropbox OAuth2 authorization URL
   getAuthorizationUrl(state?: string): string {
     const params = {
@@ -203,11 +194,27 @@ export class DropboxService {
 
     const query = qs.stringify(params);
     return `${this.AUTH_URL}?${query}`;
+  }*/
+  
+  async getAuthorizationUrl(state?: string): Promise<string> {
+    const { AppKey, AppSecret } = await this.getAppCredentialsFromDB();
+
+    const params = {
+      response_type: 'code',
+      client_id: AppKey,
+      redirect_uri: this.REDIRECT_URI,
+      token_access_type: 'offline',
+      state: state || '',
+    };
+    const query = qs.stringify(params);
+    return `${this.AUTH_URL}?${query}`;
   }
 
   // Exchange authorization code for access and refresh tokens
   async getTokens(code: string): Promise<Token> {
-    const authHeader = Buffer.from(`${this.APP_KEY}:${this.APP_SECRET}`).toString('base64');
+	  const { AppKey, AppSecret } = await this.getAppCredentialsFromDB();
+	  const authHeader = Buffer.from(`${AppKey}:${AppSecret}`).toString('base64');
+    //const authHeader = Buffer.from(`${this.APP_KEY}:${this.APP_SECRET}`).toString('base64');
 
     const data = qs.stringify({
       code,
@@ -246,8 +253,11 @@ export class DropboxService {
   async refreshAccessToken(): Promise<any> {
     try {
       const storedToken: TokenDocument = await this.tokensService.findOne();
-
-      const authHeader = Buffer.from(`${this.APP_KEY}:${this.APP_SECRET}`).toString('base64');
+	
+      //const authHeader = Buffer.from(`${this.APP_KEY}:${this.APP_SECRET}`).toString('base64');
+	  
+	  const { AppKey, AppSecret } = await this.getAppCredentialsFromDB();
+      const authHeader = Buffer.from(`${AppKey}:${AppSecret}`).toString('base64');
 
       const data = qs.stringify({
         grant_type: 'refresh_token',
@@ -330,5 +340,19 @@ export class DropboxService {
   async getDropboxClient(): Promise<Dropbox> {
     const accessToken = await this.getValidAccessToken();
     return new Dropbox({ accessToken });
+  }
+  
+  async storeAppdata(AppKey: string, AppSecret: string): Promise<any> {
+    try {
+      await this.tokensService.update({
+        AppKey: AppKey,
+        AppSecret: AppSecret,
+      });
+    } catch (error) {
+      throw new HttpException(
+        `Error save data: ${error.message}`,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
   }
 }

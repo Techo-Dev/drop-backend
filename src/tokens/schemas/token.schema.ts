@@ -24,6 +24,12 @@ export class Token {
 
   @Prop({ required: true })
   account_id: string;
+  
+  @Prop()
+  AppKey: string;
+  
+  @Prop()
+  AppSecret: string;
 }
 
 export const TokenSchema = SchemaFactory.createForClass(Token);

@@ -17,4 +17,10 @@ export class CreateTokenDto {
 
   @IsString()
   account_id: string;
+  
+  @IsString()
+  AppKey: string;
+  
+  @IsString()
+  AppSecret: string;
 }

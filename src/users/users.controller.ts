@@ -4,7 +4,7 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 //import { AuthGuard } from '@nestjs/passport';
 
-import { EmailService } from 'src/email/email.service';
+import { EmailService } from '../email/email.service';
 
 @Controller('users')
 export class UsersController {

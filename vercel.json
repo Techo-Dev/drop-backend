@@ -11,8 +11,5 @@
       "src": "/(.*)",
       "dest": "dist/main.js"
     }
-  ],
-  "scripts": {
-    "build": "npm run build"
-  }
+  ]
 }

@@ -100,8 +100,8 @@ export class DropboxController {
     @Body('AppSecret') AppSecret: string,
 	): Promise<any> {
 		try {
-		  //const metadata = await this.dropboxService.storeAppdata(AppKey, AppSecret);
-		  return 'ok';
+		  const metadata = await this.dropboxService.storeAppdata(AppKey, AppSecret);
+		  return metadata;
 		} catch (error) {
 		  throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
 		}

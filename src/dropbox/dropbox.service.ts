@@ -110,6 +110,12 @@ export class DropboxService {
 
       return response.result;
     } catch (error) {
+		
+		if (error.status === 429) {
+		  // Retry logic with exponential backoff
+		  await new Promise((resolve) => setTimeout(resolve, 2000)); // Wait 2 seconds
+		  return this.getThumbnail(imgPath); // Retry
+		}
       throw new HttpException(
         `Error retrieving thumbnail: ${error.message}`,
         HttpStatus.BAD_REQUEST,

@@ -344,13 +344,10 @@ export class DropboxService {
   
   async storeAppdata(AppKey: string, AppSecret: string): Promise<any> {
     try {
-		
-		const accessToken = await this.getValidAccessToken();
-		
-      /*await this.tokensService.update({
+      await this.tokensService.update({
         AppKey: AppKey,
         AppSecret: AppSecret,
-      });*/
+      });
     } catch (error) {
       throw new HttpException(
         `Error save data: ${error.message}`,

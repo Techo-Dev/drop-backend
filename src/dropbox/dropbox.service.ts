@@ -52,7 +52,7 @@ export class DropboxService {
   
   async listFolders(path: string = ''): Promise<any> {
     try {
-		this.initializeDropboxClient();
+		await this.initializeDropboxClient();
       const response = await this.dbx.filesListFolder({ path });
       return response;//.result;
     } catch (error) {

@@ -101,8 +101,15 @@ export class DropboxService {
 
   async getThumbnail(imgPath: string): Promise<files.FileMetadata> {
     try {
+		
+		const { AppKey, AppSecret } = await this.getAppCredentialsFromDB();
+		const accessToken = await this.getValidAccessToken();
+
+		// Initialize the Dropbox client within the function
+		const dbx = new Dropbox({ accessToken, clientId: AppKey, clientSecret: AppSecret });
+		
       const imagePath = `/${imgPath}`;
-      const response = await this.dbx.filesGetThumbnail({
+      const response = await dbx.filesGetThumbnail({
         path: imagePath,
         format: { '.tag': 'png' },
         size: { '.tag': 'w64h64' },
@@ -110,12 +117,6 @@ export class DropboxService {
 
       return response.result;
     } catch (error) {
-		
-		if (error.status === 429) {
-		  // Retry logic with exponential backoff
-		  await new Promise((resolve) => setTimeout(resolve, 2000)); // Wait 2 seconds
-		  return this.getThumbnail(imgPath); // Retry
-		}
       throw new HttpException(
         `Error retrieving thumbnail: ${error.message}`,
         HttpStatus.BAD_REQUEST,

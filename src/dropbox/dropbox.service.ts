@@ -23,6 +23,7 @@ export class DropboxService {
   ) {
     //this.APP_KEY = this.configService.get<string>('DROPBOX_APP_KEY');
     //this.APP_SECRET = this.configService.get<string>('DROPBOX_APP_SECRET');
+	
     this.REDIRECT_URI = this.configService.get<string>('DROPBOX_REDIRECT_URI');
 	
 	this.initializeDropboxClient();

@@ -239,6 +239,8 @@ export class DropboxService {
         uid: response.data.uid,
         account_id: response.data.account_id,
       });
+	  
+	  this.dbx = new Dropbox({ accessToken: response.data.access_token });
 
       return response.data;
     } catch (error) {
@@ -349,6 +351,8 @@ export class DropboxService {
         AppKey: AppKey,
         AppSecret: AppSecret,
       });
+	  
+	  await this.initializeDropboxClient();
     } catch (error) {
       throw new HttpException(
         `Error save data: ${error.message}`,

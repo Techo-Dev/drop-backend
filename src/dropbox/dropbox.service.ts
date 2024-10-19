@@ -51,7 +51,7 @@ export class DropboxService {
     return { AppKey: token.AppKey, AppSecret: token.AppSecret };
   }
   
-  async listFolders(path: string = ''): Promise<any> {
+  async listFolders2(path: string = ''): Promise<any> {
     try {
       const response = await this.dbx.filesListFolder({ path });
       return response;//.result;
@@ -67,6 +67,30 @@ export class DropboxService {
       //throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
     }
   }
+  
+	async listFolders(path: string = ''): Promise<any> {
+	  try {
+
+		const initialResponse = await this.dbx.filesListFolder({ path });
+		let entries = initialResponse.result.entries;
+		let hasMore = initialResponse.result.has_more;
+		let cursor = initialResponse.result.cursor;
+
+		while (hasMore) {
+		  const response = await this.dbx.filesListFolderContinue({ cursor });
+		  entries.push(...response.result.entries);
+		  hasMore = response.result.has_more;
+		  cursor = response.result.cursor;
+		}
+
+		return { ...initialResponse, result: { ...initialResponse.result, entries } };
+	  } catch (error) {
+		
+		await this.refreshAccessToken();
+		await this.initializeDropboxClient();
+		return this.listFolders(path);
+	  }
+	}
   
   async getSubfolderContent(folderPath: string = ''): Promise<{ folders: any[]; files: any[] }> {
     try {

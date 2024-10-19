@@ -38,7 +38,7 @@ export class UsersController {
       if (error instanceof HttpException) {
         throw error;
       }
-      throw new HttpException('Internal Server Error', HttpStatus.INTERNAL_SERVER_ERROR);
+      throw new HttpException(error.message || 'Internal Server Error', HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 

@@ -5,26 +5,17 @@ import { MailerService } from '@nestjs-modules/mailer';
 export class EmailService {
   constructor(private readonly mailerService: MailerService) {}
 
-  async sendUserConfirmation(email: string, name: string, token: string) {
-    const url = `example.com/auth/confirm?token=${token}`;
-
-    await this.mailerService.sendMail({
-      to: email,
-      subject: 'Welcome to Our App! Confirm Your Email',
-      template: './confirmation',
-      context: { 
-        name,
-        url,
-      },
-    });
-  }
-
-  // Basic email without template
-  async sendSimpleEmail(to: string, subject: string, text: string) {
-    await this.mailerService.sendMail({
-      to,
-      subject,
-      text,
-    });
-  }
+	async sendSimpleEmail(to: string, subject: string, html: string) {
+	  try {
+		await this.mailerService.sendMail({
+		  to,
+		  subject,
+		  html,
+		});
+		console.log('Email sent successfully');
+	  } catch (error) {
+		console.error('Error sending email:', error);
+		throw new Error('Failed to send email'+error);
+	  }
+	}
 }

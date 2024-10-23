@@ -6,7 +6,7 @@ import axios from 'axios';
 import * as qs from 'qs';
 import { TokensService } from '../tokens/tokens.service';
 import { Token, TokenDocument } from '../tokens/schemas/token.schema';
-import { Dropbox, files } from 'dropbox';
+import { Dropbox, files, DropboxAuth } from 'dropbox';
 
 @Injectable()
 export class DropboxService {

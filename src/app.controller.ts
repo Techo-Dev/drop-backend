@@ -208,11 +208,11 @@ export class AppController {
     }
   }
   
-  @Post('basefolder')
-  async getBasefolder(@Body('basePath') basePath: string): Promise<any> {
+  @Get('get-members')
+  async getTeamMembers(): Promise<any> {
     try {
-      const response = await this.dropboxService.listFolders(basePath);
-      return response;
+      const members = await this.dropboxService.getTeamMembers();
+      return members;
     } catch (error) {
       throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
     }

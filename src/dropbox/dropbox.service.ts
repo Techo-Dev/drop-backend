@@ -37,7 +37,23 @@ export class DropboxService {
   private async initializeDropboxClient(): Promise<void> {
     const { AppKey, AppSecret } = await this.getAppCredentialsFromDB();
     const accessToken = await this.getValidAccessToken();
-    this.dbx = new Dropbox({ accessToken, clientId: AppKey, clientSecret: AppSecret });
+    //this.dbx = new Dropbox({ accessToken, clientId: AppKey, clientSecret: AppSecret });
+	
+	const auth = new DropboxAuth({
+      clientId: AppKey,
+      clientSecret: AppSecret,
+      accessToken,
+    });
+
+    const customFetch = (url: string, init: RequestInit) => {
+      const headers = new Headers(init.headers);
+      headers.append('Dropbox-API-Select-User', 'dbmid:AAC3dvf3TQhKm8zYonwbDPExufeY8VXCe2s');
+
+      return fetch(url, { ...init, headers });
+    };
+
+    this.dbx = new Dropbox({ auth, fetch: customFetch });
+	
   }
 
   private async getAppCredentialsFromDB(): Promise<{ AppKey: string; AppSecret: string }> {
@@ -89,6 +105,25 @@ export class DropboxService {
 		await this.refreshAccessToken();
 		await this.initializeDropboxClient();
 		return this.listFolders(path);
+	  }
+	}
+	
+	async getTeamMembers(): Promise<any[]> {
+	  try {
+		const response = await this.dbx.teamMembersList({ limit: 100 });
+		const members = response.result.members;
+
+		return members.map(member => ({
+		  email: member.profile.email,
+		  name: member.profile.name.display_name,
+		  team_member_id: member.profile.team_member_id,
+		}));
+	  } catch (error) {
+		console.error('Error fetching team members:', error);
+		throw new HttpException(
+		  `Error fetching team members: ${error.message}`,
+		  HttpStatus.BAD_REQUEST,
+		);
 	  }
 	}
   

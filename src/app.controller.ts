@@ -207,6 +207,16 @@ export class AppController {
       throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
     }
   }
+  
+  @Post('basefolder')
+  async getBasefolder(@Body('basePath') basePath: string): Promise<any> {
+    try {
+      const response = await this.dropboxService.listFolders(basePath);
+      return response;
+    } catch (error) {
+      throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
+    }
+  }
 
   /**
    * Endpoint: POST /subfolder

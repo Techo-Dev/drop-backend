@@ -17,6 +17,9 @@ export class DropboxService {
   private readonly AUTH_URL = 'https://www.dropbox.com/oauth2/authorize';
   private dbx: Dropbox;
   
+  private readonly teamFolderNamespaceId: string;
+  private readonly team_member_id: string;
+  
   constructor(
     private configService: ConfigService,
     private tokensService: TokensService,
@@ -123,6 +126,11 @@ export class DropboxService {
 	}
 	
 	async getTeamMembers(): Promise<any[]> {
+		
+		if (!this.dbx) {
+			throw new HttpException('Dropbox client not initialized.', HttpStatus.INTERNAL_SERVER_ERROR);
+		}
+		  
 		try {
 			const response = await this.dbx.teamMembersList({ limit: 100 });
 			const members = response.result.members;

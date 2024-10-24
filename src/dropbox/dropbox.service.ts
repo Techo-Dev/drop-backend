@@ -38,12 +38,9 @@ export class DropboxService {
   }*/
   
   private async initializeDropboxClient(): Promise<void> {
-    const { AppKey, AppSecret } = await this.getAppCredentialsFromDB();
-    const accessToken = await this.getValidAccessToken();
-	
-	console.log(AppKey);
-	console.log(AppSecret);
-    this.dbx = new Dropbox({ accessToken, clientId: AppKey, clientSecret: AppSecret });
+    //const { AppKey, AppSecret } = await this.getAppCredentialsFromDB();
+    //const accessToken = await this.getValidAccessToken();
+    //this.dbx = new Dropbox({ accessToken, clientId: AppKey, clientSecret: AppSecret });
 	
 	/*
 	const auth = new DropboxAuth({
@@ -62,6 +59,16 @@ export class DropboxService {
     this.dbx = new Dropbox({ auth, fetch: customFetch });
 	*/
 	
+	try {
+		const { AppKey, AppSecret } = await this.getAppCredentialsFromDB();
+		const accessToken = await this.getValidAccessToken();
+		this.dbx = new Dropbox({ accessToken, clientId: AppKey, clientSecret: AppSecret });
+		console.log('Dropbox client initialized successfully');
+	} catch (error) {
+		console.error('Failed to initialize Dropbox client:', error);
+		throw new HttpException('Dropbox initialization failed.', HttpStatus.INTERNAL_SERVER_ERROR);
+	}
+  
   }
 
   private async getAppCredentialsFromDB(): Promise<{ AppKey: string; AppSecret: string }> {

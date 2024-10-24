@@ -37,8 +37,9 @@ export class DropboxService {
   private async initializeDropboxClient(): Promise<void> {
     const { AppKey, AppSecret } = await this.getAppCredentialsFromDB();
     const accessToken = await this.getValidAccessToken();
-    //this.dbx = new Dropbox({ accessToken, clientId: AppKey, clientSecret: AppSecret });
+    this.dbx = new Dropbox({ accessToken, clientId: AppKey, clientSecret: AppSecret });
 	
+	/*
 	const auth = new DropboxAuth({
       clientId: AppKey,
       clientSecret: AppSecret,
@@ -53,6 +54,7 @@ export class DropboxService {
     };
 
     this.dbx = new Dropbox({ auth, fetch: customFetch });
+	*/
 	
   }
 
@@ -108,23 +110,35 @@ export class DropboxService {
 	  }
 	}
 	
-	async getTeamMembers(): Promise<any[]> {
+	async teamFolderList(path: string = ''): Promise<any> {
 	  try {
-		const response = await this.dbx.teamMembersList({ limit: 100 });
-		const members = response.result.members;
-
-		return members.map(member => ({
-		  email: member.profile.email,
-		  name: member.profile.name.display_name,
-		  team_member_id: member.profile.team_member_id,
-		}));
+		 
+		const response = await this.dbx.teamTeamFolderList({ limit: 100 });
+		return response;
+		 
 	  } catch (error) {
-		console.error('Error fetching team members:', error);
-		throw new HttpException(
-		  `Error fetching team members: ${error.message}`,
-		  HttpStatus.BAD_REQUEST,
-		);
+		console.error('Error listing folders:', error);
+ 
 	  }
+	}
+	
+	async getTeamMembers(): Promise<any[]> {
+		try {
+			const response = await this.dbx.teamMembersList({ limit: 100 });
+			const members = response.result.members;
+
+			return members.map(member => ({
+			  email: member.profile.email,
+			  name: member.profile.name.display_name,
+			  team_member_id: member.profile.team_member_id,
+			}));
+		} catch (error) {
+			console.error('Error fetching team members:', error);
+			throw new HttpException(
+			  `Error fetching team members: ${error.message}`,
+			  HttpStatus.BAD_REQUEST,
+			);
+		}
 	}
   
   async getSubfolderContent(folderPath: string = ''): Promise<{ folders: any[]; files: any[] }> {

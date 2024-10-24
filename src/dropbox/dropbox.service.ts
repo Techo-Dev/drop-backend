@@ -124,6 +124,8 @@ export class DropboxService {
 	}
 	
 	async teamFolderList(path: string = ''): Promise<any> {
+		
+		await this.initializeDropboxClient();
 	  try {
 		 
 		const response = await this.dbx.teamTeamFolderList({ limit: 100 });

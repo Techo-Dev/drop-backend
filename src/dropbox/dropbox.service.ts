@@ -137,9 +137,7 @@ export class DropboxService {
 	
 	async getTeamMembers(): Promise<any[]> {
 		
-		if (!this.dbx) {
-			throw new HttpException('Dropbox client not initialized.', HttpStatus.INTERNAL_SERVER_ERROR);
-		}
+		await this.initializeDropboxClient();
 		  
 		try {
 			const response = await this.dbx.teamMembersList({ limit: 100 });

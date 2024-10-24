@@ -41,7 +41,8 @@ export class DropboxService {
     const { AppKey, AppSecret } = await this.getAppCredentialsFromDB();
     const accessToken = await this.getValidAccessToken();
 	
-	console.log(accessToken);
+	console.log(AppKey);
+	console.log(AppSecret);
     this.dbx = new Dropbox({ accessToken, clientId: AppKey, clientSecret: AppSecret });
 	
 	/*

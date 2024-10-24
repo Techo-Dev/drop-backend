@@ -40,6 +40,8 @@ export class DropboxService {
   private async initializeDropboxClient(): Promise<void> {
     const { AppKey, AppSecret } = await this.getAppCredentialsFromDB();
     const accessToken = await this.getValidAccessToken();
+	
+	console.log(accessToken);
     this.dbx = new Dropbox({ accessToken, clientId: AppKey, clientSecret: AppSecret });
 	
 	/*

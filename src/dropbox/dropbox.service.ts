@@ -326,7 +326,7 @@ export class DropboxService {
         'Dropbox-API-Arg': JSON.stringify({
           path: imagePath,
           format: { '.tag': 'png' },
-          size: { '.tag': 'w64h64' },
+          size: { '.tag': 'w256h256' },
         }),
       },
       responseType: 'arraybuffer', // Binary data (image)

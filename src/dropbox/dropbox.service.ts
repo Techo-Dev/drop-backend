@@ -26,10 +26,12 @@ export class DropboxService {
   ) {
     //this.APP_KEY = this.configService.get<string>('DROPBOX_APP_KEY');
     //this.APP_SECRET = this.configService.get<string>('DROPBOX_APP_SECRET');
-	
     this.REDIRECT_URI = this.configService.get<string>('DROPBOX_REDIRECT_URI');
 	
 	this.initializeDropboxClient();
+	
+	this.teamFolderNamespaceId = '2220429139';
+	this.team_member_id = 'dbmid:AADOp5qlqpmDYORehnBaL_-CaEBxjriDErU';
   }
   
   /*private async initializeDropboxClient() {
@@ -38,12 +40,13 @@ export class DropboxService {
   }*/
   
   private async initializeDropboxClient(): Promise<void> {
-    //const { AppKey, AppSecret } = await this.getAppCredentialsFromDB();
-    //const accessToken = await this.getValidAccessToken();
-    //this.dbx = new Dropbox({ accessToken, clientId: AppKey, clientSecret: AppSecret });
+    const { AppKey, AppSecret } = await this.getAppCredentialsFromDB();
+    const accessToken = await this.getValidAccessToken();
 	
-	/*
-	const auth = new DropboxAuth({
+	console.log(accessToken);
+    this.dbx = new Dropbox({ accessToken, clientId: AppKey, clientSecret: AppSecret });
+	
+	/*const auth = new DropboxAuth({
       clientId: AppKey,
       clientSecret: AppSecret,
       accessToken,
@@ -56,19 +59,7 @@ export class DropboxService {
       return fetch(url, { ...init, headers });
     };
 
-    this.dbx = new Dropbox({ auth, fetch: customFetch });
-	*/
-	
-	try {
-		const { AppKey, AppSecret } = await this.getAppCredentialsFromDB();
-		const accessToken = await this.getValidAccessToken();
-		this.dbx = new Dropbox({ accessToken, clientId: AppKey, clientSecret: AppSecret });
-		console.log('Dropbox client initialized successfully');
-	} catch (error) {
-		console.error('Failed to initialize Dropbox client:', error);
-		throw new HttpException('Dropbox initialization failed.', HttpStatus.INTERNAL_SERVER_ERROR);
-	}
-  
+    this.dbx = new Dropbox({ auth, fetch: customFetch });*/
   }
 
   private async getAppCredentialsFromDB(): Promise<{ AppKey: string; AppSecret: string }> {
@@ -82,6 +73,7 @@ export class DropboxService {
     return { AppKey: token.AppKey, AppSecret: token.AppSecret };
   }
   
+  /*
   async listFolders2(path: string = ''): Promise<any> {
     try {
       const response = await this.dbx.filesListFolder({ path });
@@ -99,7 +91,7 @@ export class DropboxService {
     }
   }
   
-	async listFolders(path: string = ''): Promise<any> {
+	async listFolders3(path: string = ''): Promise<any> {
 	  try {
 
 		const initialResponse = await this.dbx.filesListFolder({ path });
@@ -121,11 +113,75 @@ export class DropboxService {
 		await this.initializeDropboxClient();
 		return this.listFolders(path);
 	  }
+	}*/
+	
+	async listFolders(path: string = ''): Promise<any> {
+	  try {
+		// Get a valid access token
+		const accessToken = await this.getValidAccessToken();
+
+		// Prepare headers based on whether it's a team folder or individual account
+		const headers: Record<string, string> = {
+		  'Content-Type': 'application/json',
+		  Authorization: `Bearer ${accessToken}`,
+		};
+
+		
+		if (this.teamFolderNamespaceId) {
+		  headers['Dropbox-API-Select-Admin'] = this.team_member_id;
+		  headers['Dropbox-API-Path-Root'] = JSON.stringify({
+			'.tag': 'namespace_id',
+			namespace_id: this.teamFolderNamespaceId,
+		  });
+		}
+
+		// Initial request to list folders
+		const initialResponse = await axios.post(
+		  'https://api.dropboxapi.com/2/files/list_folder',
+		  {
+			path,
+			recursive: false,
+			include_mounted_folders: true,
+		  },
+		  { headers }
+		);
+
+		let entries = initialResponse.data.entries;
+		let hasMore = initialResponse.data.has_more;
+		let cursor = initialResponse.data.cursor;
+
+		// Handle pagination if more entries are available
+		while (hasMore) {
+		  const response = await axios.post(
+			'https://api.dropboxapi.com/2/files/list_folder/continue',
+			{ cursor },
+			{ headers }
+		  );
+		  entries.push(...response.data.entries);
+		  hasMore = response.data.has_more;
+		  cursor = response.data.cursor;
+		}
+
+		// Return the result with the desired format
+		return {
+		  result: {
+			...initialResponse.data,
+			entries,
+		  },
+		};
+	  } catch (error) {
+		console.error(`Dropbox API error: ${error.response?.data?.error_summary || error.message}`);
+
+		// Handle token expiration or initialization errors
+		await this.refreshAccessToken();
+		await this.initializeDropboxClient();
+
+		// Retry the request
+		return this.listFolders(path);
+	  }
 	}
 	
 	async teamFolderList(path: string = ''): Promise<any> {
-		
-		await this.initializeDropboxClient();
 	  try {
 		 
 		const response = await this.dbx.teamTeamFolderList({ limit: 100 });
@@ -138,9 +194,6 @@ export class DropboxService {
 	}
 	
 	async getTeamMembers(): Promise<any[]> {
-		
-		await this.initializeDropboxClient();
-		  
 		try {
 			const response = await this.dbx.teamMembersList({ limit: 100 });
 			const members = response.result.members;
@@ -157,6 +210,41 @@ export class DropboxService {
 			  HttpStatus.BAD_REQUEST,
 			);
 		}
+	}
+
+	/*
+	async listTeamFolders(): Promise<any[]> {
+	  try {
+		const response = await this.dbx.teamTeamFolderList({ limit: 100 });
+		return response.result.team_folders.map(folder => ({
+		  id: folder.id,
+		  name: folder.name,
+		  path: folder.path_lower,
+		}));
+	  } catch (error) {
+		console.error('Error fetching team folders:', error);
+		throw new HttpException(
+		  `Error fetching team folders: ${error.message}`,
+		  HttpStatus.BAD_REQUEST,
+		);
+	  }
+	}*/
+
+	async getFilesInTeamFolder(folderId: string): Promise<any[]> {
+	  try {
+		// Specify the path to the team folder
+		const response = await this.dbx.filesListFolder({
+		  path: `/${folderId}`, // Ensure the path is correctly formatted
+		});
+
+		return response.result.entries.filter((entry) => entry['.tag'] === 'file');
+	  } catch (error) {
+		console.error('Error fetching files in team folder:', error);
+		throw new HttpException(
+		  `Error fetching files in team folder: ${error.message}`,
+		  HttpStatus.BAD_REQUEST,
+		);
+	  }
 	}
   
   async getSubfolderContent(folderPath: string = ''): Promise<{ folders: any[]; files: any[] }> {
@@ -190,17 +278,10 @@ export class DropboxService {
     }
   }
 
-  async getThumbnail(imgPath: string): Promise<files.FileMetadata> {
+  async getThumbnail2(imgPath: string): Promise<files.FileMetadata> {
     try {
-		
-		const { AppKey, AppSecret } = await this.getAppCredentialsFromDB();
-		const accessToken = await this.getValidAccessToken();
-
-		// Initialize the Dropbox client within the function
-		const dbx = new Dropbox({ accessToken, clientId: AppKey, clientSecret: AppSecret });
-		
       const imagePath = `/${imgPath}`;
-      const response = await dbx.filesGetThumbnail({
+      const response = await this.dbx.filesGetThumbnail({
         path: imagePath,
         format: { '.tag': 'png' },
         size: { '.tag': 'w64h64' },
@@ -214,8 +295,57 @@ export class DropboxService {
       );
     }
   }
+  
+  async getThumbnail(
+  imgPath: string
+): Promise<{ thumbnail: string }> {
+  try {
+    const accessToken = await this.getValidAccessToken();
+    const imagePath = `/${imgPath}`; // Ensure the path starts with a single `/`
 
-  async createFolder(parentFolder: string, folderName: string): Promise<files.FolderMetadata> {
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/octet-stream', // Correct Content-Type header
+    };
+
+    if (this.teamFolderNamespaceId) {
+      headers['Dropbox-API-Select-Admin'] = this.team_member_id;
+      headers['Dropbox-API-Path-Root'] = JSON.stringify({
+        '.tag': 'namespace_id',
+        namespace_id: this.teamFolderNamespaceId,
+      });
+    }
+
+    console.log(`Getting thumbnail for: ${imagePath}`); // Debugging log
+
+    const response = await axios({
+      method: 'post',
+      url: 'https://content.dropboxapi.com/2/files/get_thumbnail',
+      headers: {
+        ...headers,
+        'Dropbox-API-Arg': JSON.stringify({
+          path: imagePath,
+          format: { '.tag': 'png' },
+          size: { '.tag': 'w64h64' },
+        }),
+      },
+      responseType: 'arraybuffer', // Binary data (image)
+    });
+
+    console.log(`Thumbnail received for: ${imgPath}`); // Debugging log
+
+    // Convert the binary response to a base64 string for easy usage
+    const thumbnailBase64 = Buffer.from(response.data, 'binary').toString('base64');
+    return { thumbnail: thumbnailBase64 };
+  } catch (error) {
+    console.error(`Error retrieving thumbnail: ${error.response?.data || error.message}`);
+    await this.refreshAccessToken();
+    await this.initializeDropboxClient();
+    return this.getThumbnail(imgPath);
+  }
+}
+
+  /*async createFolder(parentFolder: string, folderName: string): Promise<files.FolderMetadata> {
     try {
       const fullPath = `${parentFolder}/${folderName}`;
       const response = await this.dbx.filesCreateFolderV2({ path: fullPath });
@@ -226,25 +356,65 @@ export class DropboxService {
         HttpStatus.BAD_REQUEST,
       );
     }
-  }
+  }*/
+  
+	async createFolder(
+	  parentFolder: string, 
+	  folderName: string
+	): Promise<files.FolderMetadata> {
+	  try {
+		const fullPath = `${parentFolder}/${folderName}`;
+		const accessToken = await this.getValidAccessToken();
 
-  async uploadFile(uploadFolder: string, file: Express.Multer.File): Promise<files.FileMetadata> {
-    try {
-      const uploadPath = `${uploadFolder}/${file.originalname}`;
-      const response = await this.dbx.filesUpload({
-        path: uploadPath,
-        contents: file.buffer,
-      });
+		// Prepare headers based on whether it's a team folder or individual account
+		const headers: Record<string, string> = {
+		  'Content-Type': 'application/json',
+		  Authorization: `Bearer ${accessToken}`,
+		};
 
-      return response.result as files.FileMetadata;
-    } catch (error) {
-      throw new HttpException(
-        `Error uploading file: ${error.message}`,
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-  }
+		if (this.teamFolderNamespaceId) {
+		  headers['Dropbox-API-Select-Admin'] = this.team_member_id;
+		  headers['Dropbox-API-Path-Root'] = JSON.stringify({
+			'.tag': 'namespace_id',
+			namespace_id: this.teamFolderNamespaceId,
+		  });
+		}
+ 
+		const response = await axios.post(
+		  'https://api.dropboxapi.com/2/files/create_folder_v2',
+		  { path: fullPath },
+		  { headers }
+		);
+ 
+		return response.data.metadata as files.FolderMetadata;
+	  } catch (error) {
+		console.error(`Error creating folder: ${error.response?.data?.error_summary || error.message}`);
+ 
+		await this.refreshAccessToken();
+		await this.initializeDropboxClient();
+ 
+		return this.createFolder(parentFolder, folderName);
+	  }
+	}
 
+	async uploadFile(uploadFolder: string, file: Express.Multer.File): Promise<files.FileMetadata> {
+		try {
+		  const uploadPath = `${uploadFolder}/${file.originalname}`;
+		  const response = await this.dbx.filesUpload({
+			path: uploadPath,
+			contents: file.buffer,
+		  });
+
+		  return response.result as files.FileMetadata;
+		} catch (error) {
+		  throw new HttpException(
+			`Error uploading file: ${error.message}`,
+			HttpStatus.BAD_REQUEST,
+		  );
+		}
+	}
+
+	/*
   async uploadFiles(uploadFolder: string, files: Express.Multer.File[]): Promise<any[]> {
     if (!files || files.length === 0) {
       throw new HttpException('No files provided', HttpStatus.BAD_REQUEST);
@@ -279,6 +449,77 @@ export class DropboxService {
       );
     }
   }
+  */
+  
+  async uploadFiles(
+	  uploadFolder: string, 
+	  files: Express.Multer.File[]
+	): Promise<any[]> {
+	  if (!files || files.length === 0) {
+		throw new HttpException('No files provided', HttpStatus.BAD_REQUEST);
+	  }
+
+	  const accessToken = await this.getValidAccessToken();
+
+	  // Prepare headers based on whether it's a team folder or individual account
+	  const headers: Record<string, string> = {
+		Authorization: `Bearer ${accessToken}`,
+		'Content-Type': 'application/octet-stream',
+	  };
+
+	  if (this.teamFolderNamespaceId) {
+		headers['Dropbox-API-Select-Admin'] = this.team_member_id;  // Replace with actual admin ID
+		headers['Dropbox-API-Path-Root'] = JSON.stringify({
+		  '.tag': 'namespace_id',
+		  namespace_id: this.teamFolderNamespaceId,
+		});
+	  }
+
+	  const uploadPromises = files.map((file) => {
+		const uploadPath = `${uploadFolder}/${file.originalname}`;
+
+		// Prepare request options
+		const options = {
+		  headers: {
+			...headers,
+			'Dropbox-API-Arg': JSON.stringify({
+			  path: uploadPath,
+			  mode: 'add',
+			  autorename: true,
+			  mute: false,
+			}),
+		  },
+		};
+
+		// Make the API call for uploading the file
+		return axios
+		  .post('https://content.dropboxapi.com/2/files/upload', file.buffer, options)
+		  .then((response) => ({
+			file: file.originalname,
+			status: 'success',
+			details: response.data,
+		  }))
+		  .catch((error) => ({
+			file: file.originalname,
+			status: 'error',
+			details: error.response?.data?.error_summary || error.message,
+		  }));
+	  });
+
+	  try {
+		const results = await Promise.all(uploadPromises);
+		return results;
+	  } catch (error) {
+		console.error(`Error uploading files: ${error.message}`);
+
+		// Handle token expiration or initialization errors
+		await this.refreshAccessToken();
+		await this.initializeDropboxClient();
+
+		// Retry the request
+		return this.uploadFiles(uploadFolder, files);
+	  }
+	}
   
   /*
   // Generate the Dropbox OAuth2 authorization URL
@@ -337,8 +578,6 @@ export class DropboxService {
         uid: response.data.uid,
         account_id: response.data.account_id,
       });
-	  
-	  this.dbx = new Dropbox({ accessToken: response.data.access_token });
 
       return response.data;
     } catch (error) {
@@ -435,6 +674,67 @@ export class DropboxService {
       );
     }
   }
+   
+  /*
+	async listFiles(): Promise<any> {
+	  const accessToken = await this.getValidAccessToken();
+
+	  try {
+		const response = await axios.post(
+		  'https://api.dropboxapi.com/2/team/team_folder/list',
+		  {
+			 "limit": 100
+		  },
+		  {
+			headers: {
+			  'Content-Type': 'application/json',
+			  Authorization: `Bearer ${accessToken}`,
+			},
+		  }
+		);
+
+		console.log(response.data);
+		return response.data;
+	  } catch (error) {
+		throw new HttpException(
+		  `Dropbox API error: ${error.response?.data?.error_summary || error.message}`,
+		  error.response?.status || HttpStatus.INTERNAL_SERVER_ERROR,
+		);
+	  }
+	}
+	
+	async listFiles(): Promise<any> {
+	  const accessToken = await this.getValidAccessToken();
+
+	  try {
+		const response = await axios.post(
+		  'https://api.dropboxapi.com/2/files/list_folder',
+		  {
+			path: "",  // Empty path to get the root of the team folder
+			recursive: false,
+			include_mounted_folders: true,
+		  },
+		  {
+			headers: {
+			  'Content-Type': 'application/json',
+			  Authorization: `Bearer ${accessToken}`,
+			  'Dropbox-API-Select-Admin': "dbmid:AAC3dvf3TQhKm8zYonwbDPExufeY8VXCe2s",
+			  'Dropbox-API-Path-Root': JSON.stringify({
+				".tag": "namespace_id",
+				"namespace_id": "11814452433",  // team_folder_id from the previous response
+			  }),
+			},
+		  }
+		);
+ 
+		return response.data;
+	  } catch (error) {
+		throw new HttpException(
+		  `Dropbox API error: ${error.response?.data?.error_summary || error.message}`,
+		  error.response?.status || HttpStatus.INTERNAL_SERVER_ERROR,
+		);
+	  }
+	}*/
 
   // Add more Dropbox API methods as needed
   

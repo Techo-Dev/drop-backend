@@ -15,6 +15,7 @@ export class UsersController {
     try {
       const user = await this.usersService.create(createUserDto);
 	  
+	  /*
 	  const mailTemplate = `
       <h3>Welcome to DropBox!</h3>
       <p>Your account has been successfully created. Here are your login details:</p>
@@ -33,6 +34,7 @@ export class UsersController {
 		  'DropBox Account Created',
 		  mailTemplate,
 	  );
+	  */
       return { message: 'User created successfully', user };
     } catch (error) {
       if (error instanceof HttpException) {
